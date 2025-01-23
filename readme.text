@@ -1,0 +1,792 @@
+DOMAIN:
+-------
+1. its starts with a patient visit:
+ -   patient details
+ -  insurance  details 
+ - what insurance that patient holds 
+
+//are collected because that ensures the provider who will pay for the services //
+
+-insurance , patient or both 
+
+ex: 20000 usd - my surgery
+15000 - payed by insurance 
+5000 - payed by patient
+
+
+
+2.services are provided by ( hospital/doctor)
+
+-hospitals keeps record of all the 
+treamnet / services etc
+
+
+
+3.billing 
+-hospital will create a bill depending on services and treatment.
+
+
+- they will send that to the patients insurance company 
+or 
+if there is no insurance bill will be sent to patient itself
+
+
+4.
+if this go to the patient insurance company provider 
+
+- "claims are reviewed " by insurance company 
+
+~ if the claims are upto their regulations or not depending on that 
+they might
+ "accept / pay in full 
+partial / decline "
+
+
+
+5.payments and followups 
+
+if the insurance company pay the part of the bill , the hospitals will followup the remaining payments with patients
+
+
+6.tracking and improvement :
+
+hospitals constantly monitor the process to ensure they are collecting money . and improve that process 
+
+
+
+RCM:
+
+HEALTHCARE REVENUE CYCLE MANAGEMENT
+(RCM)
+
+it is a process that hospitals use 
+to manage their financial aspects 
+
+-from the time patients schedule an 
+appointment till the time provider(hospitals/doctor) gets paid
+
+
+- RCM ensures that hospital can provide 
+quality care , while also staying
+financially healthy .
+//making sure everyone patients , 
+insurers, doctors  , providers 
+get paid on time and collected on time and keeping a track of all transactions//
+
+
+- As Part Of RCM We have Two Main Aspects
+
+~
+Accounts receivable (AR) is the revenue that you have billed for but have not yet collected. It’s money owed to you. AR consists of any amounts due from patients, insurance companies or other guarantors.
+[hospitals remain financially healthy]
+
+
+
+~
+Account payables (AP)
+whatever they have to pay to their doctors , staff , instruments
+
+
+risk free 
+~~~~~~~~~~
+when the patients insurance company 
+pays the full payment 
+
+
+RISK FACTOR 
+~~~~~~~~~~~~
+
+- patient paying /payment is often the risk 
+
+-if money isn't collected its a loss 
+
+
+
+---------------------------------------
+SCENARIOS WHEN PATIENT HAS TO PAY THE ENTIRE PAYMENT :
+---------------------------------------
+
+-LOW INSURANCE : 
+these insurance providers put most of the burben on patients 
+
+- private clinics
+
+-dental treatments
+
+-deductables 
+ like insurance may be payed for few 
+ treaments , insruments
+
+----------------------------------------
+
+2 objectives for AR are:
+
+-patient shouldn't default the money
+ {bring cash}
+
+-also minimize collection period 
+{ patient has to pay on time}
+
+
+
+-------------------------------------
+~ AS THE PATINET DELAY THE PROCESS 
+, CHANCE OF THEM PAYING BECOMES LESS
+-------------------------------------
+
+
+
+
+-WHAT DOES A DATA ENGINNER ROLE ?
+
+
+-AS A DATA ENGINNER WE NEED TO CREATE A PIPELINE , the result of the pipeline will be fact and dimension tables 
+
+which will help the reporting team to generate / create KPI 
+for business to focus more on the factors to improve RCM
+
+
+
+
+DATASETS :
+---------
+ # EMR DATA IS STORED IN AZURE SQL DATABASE
+
+EMR DATA {Electronic medical records}
+--------------------------------------
+:its has multiple tables
+
+	TABLES
+~patient 
+~ doctors(providers)
+~departments 
+~transactions 
+~ encounter 
+
+- an encounter (case) can have multiple 
+transactions
+
+
+       FLAT FILES ( CSV)
+     CLAIMS DATA 
+-----------------------------------
+insurance company (payers)
+
+-payer will be sending the claims data in FLAT FILES 
+
+- this insurance company will be uploading the data in 
+ADLS'S GEN2 STORAGE CONATINER (LANDING)
+
+-THEY WILL SEND DATA  (MONTLY ONCE)
+
+
+ 
+
+
+             NPI DATA { NATIONAL PROVIDER IDENTIFIER}
+--------------------------------------
+- ITS A UNIQUE IDENTIFIER given to each doctor 
+
+- we have an PUBLIC API 
+
+- we call that API and list all the doctors
+
+
+(PUBLIC API)
+ICD DATA : 
+--------------------------
+its basically a code given with a description about a specific 
+
+virus , diseases etc 
+
+- ICD CODES are standardized system used in helath care providers map diagnosis code and description
+
+
+
+
+
+
+
+---------------------------------------
+-Two different instances of azure sql db 
+-----------------------------------------
+ERM (ELECTRONIC MEDICAL REPORTS) 
+`````````````````````````````````
+(DB)
+
+HOSPITAL A (IT HAS DIFFERENT DATABASE)
+
+HOSPITAL B ( ITS HAS DIFEREBT DATABASE)
+
+
+
+
+CLAIMS: (FLAT FILES)
+```````
+
+NATIONAL PROVIDER IDENTIFIERS (NPI) :
+`````````````````````````````````````
+(PUBLIC API)
+
+
+ICD CODES ( PUBLIC API)
+
+
+
+---------------------------------------
+SOLUTION ARCHITECTURE BRREAK DOWN:
+---------------------------------------
+-MEDALLION ARCHITECTURE 
+------------------------
+
+- LANDING ( ALL FLAT FILES )
+
+-BRONZE |SOURCE OF TRUTH|
+ ( PARQUET FORMAT  )
+
+-SILVER (delta tables)
+datacleaning , common data model ,
+SCD2
+
+
+-GOLD (DELTA TABLES)
+-FACTS AND DIMENSIOIN TABLES
+---------------------------------------
+FACT : TRUTH , NEVER CHANGE  ( PAYER_AMOUNT)
+
+DIMENIONS : CAN CHANGE BY TIME 
+
+
+BRIONZE LAYER 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+USING ADF :
+
+~ WE INGEST THE ERM DATA (SQLDB) 
+TO BRONZE LAYER ~ IN PARQUET FILE 
+-WE TAKE DATA FROM SQLDB TO ADLSGEN2 INTO  PARQUET FROMAT
+
+~ ingest NPI API FILES through databricks into bronze layer in parquet format (COMPRESSION TYPE = SNAPPY)
+
+
+~ ingest flat files (claims) from 
+ADLSGEN2 USING DATABRICKS TO 
+BRONZE LAYER IN parquet format 
+
+
+SILVER LAYER (DELTA TABLES)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DATABRICKS
+
+GOLDER LAYER (DELTA TABLES)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DATABRICKS 
+
+
+--------------------------------------
+            GENERIC PIPELINE  : 
+--------------------------------------
+
+
+USING ADF :
+
+~ WE INGEST THE ERM DATA (SQLDB) 
+TO BRONZE LAYER ~ IN PARQUET FILE 
+
+
+
+-------connect through linked service for databricks---------------------------
+
+authentication method
+-access token
+
+domain name
+- databricks workspace  URL 
+
+EXISTING CUSTER ID
+-when we configure cluster compute->we get on top of the search 
+
+------------------------------------------------------------------------
+
+we will use audit table 
+called load_logs 
+//we will load the logs after pipeline is executed /succeeds
+
+
+* watermakrkcolumn - > last modified date 
+
+*loaddate -> will be a load time /ingested time
+
+
+
+GENERIC DATASETS 
+----------------
+SQLDB
+
+ADLSGEN2 -CSV
+
+ADLSGEN2-PARQUET
+
+---------------------------------------------------------------------------------
+@concat(item().targetpath,'/archive/',formatDateTime(utcNow(),'yyyy'),'/', formatDateTime(utcNow(),'%M'), '/',formatDateTime(utcNow(),'%d'))
+
+
+@concat('select *,''',item().datasource,'''as datasource from ' ,item().tablename)
+
+
+incremental;
+
+1. check the audit table 
+
+concat('select coalesce(cast(max(loaddate) as date),''','1900-01-01',''') as last_fetched_date from audit.load_logs
+where',' data_source = ''',item().datasource,''' and tablename = ''',item().tablename,'''')
+
+SUPPOSE: INCREMENTAL
+
+  21 NOV 2024 8:45 was last loaddate 
+*colasese will cast to 
+
+21 nov 2024 -we have handled data till this date .
+when we get new data we wana handle the data from 21 nov 2024 and beyound 
+
+
+//all records which were processed till 8 pm . will be reprocessed again on a safer side 
+
+=> 21 nov 2024
+
+//generallly emr systems wont be great might have issues 
+//my pipeline should be idom important pipeline   reprocess or re load the data (it will have no duplicates ) it willl merge it.
+
+
+select * from item().tablename where item().watermark >= activity('check_audit_logs').output.firstRow.last_fetched_date
+
+@concat('select *,''',item().datasource,''' as datasource from ',item().tablename,' where ',item().watermark,' >= ''',activity('check_audit_logs').output.firstRow.last_fetched_date,'''')
+
+
+AUDIT LOGS:
+WHENEVER A TABLE IS BEING INGESTED SUCCESFULLY ITS , TABLES ENTRIES WILL BE IN THE AUDIT LOGS 
+
+
+
+
+PART - 2
+_-------
+
+-> INGEST /GET THE DATA FROM API
+
+-> IMPLEMENTED A SILVER LAYER , taking the data from bronze and clean ,
+
+IMPLEMENT common data model , and apply SCD2
+
+-> DATA WILL BE STORED IN DELTA TABLES 
+
+_> IMPLEMENTING GOLD LAYER
+(CREATING FACTS AND DIMS)
+
+-KEY VAULT 
+-IMPTOVE NAMING CONVENTIONS 
+
+
+-ADF PIPELINE PARALLEL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\\\\\\\\\\\\\\
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
